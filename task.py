@@ -14,6 +14,7 @@ print(banner)
 import os
 import sys
 
+
 windows = False
 python = 'python3'
 if 'win' in sys.platform:
@@ -41,14 +42,26 @@ while True:
             input(f'[!] Playlist generation failed. Press Ctrl+C to exit...')
             done()
 
-def grab(name, code, logo, cuid, tvgid):
-    data = {'stream': code}
-    m3u = s.post('https://ustvgo.tv/data.php', data=data).text
-    playlist.write(f'\n#EXTINF:-1 CUID="{cuid}" tvg-id="{tvgid}" group-title="ustvgo" tvg-logo="{logo}", {name}')
-    playlist.write(f'\n{m3u}')
+def grab(name, code, logo):
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0',
+            'Referer': 'https://ustvgo.tv/'
+        }
+        m3u = s.get(f'https://ustvgo.tv/player.php?stream={code}', headers=headers).text
+        m3u = m3u.replace('\n', '').split("var hls_src='")[1].split("'")[0]
+        playlist.write(f'\n#EXTINF:-1 tvg-id="{code}" group-title="ustvgo" tvg-logo="{logo}", {name}')
+        playlist.write(f'\n{m3u}')
+    except:
+        # findersfred helped me to find this, all credits to him:
+        m3u = s.get(f'https://ustvgo.tv/player.php?stream=BBCAmerica', headers=headers).text
+        m3u = m3u.replace('\n', '').split("var hls_src='")[1].split("'")[0].replace('BBCAmerica', code)
+        playlist.write(f'\n#EXTINF:-1 tvg-id="{code}" group-title="ustvgo" tvg-logo="{logo}", {name}')
+        playlist.write(f'\n{m3u}')
+        
 
 total = 0
-with open('/iptv/ustvgo_channel_info.txt') as file:
+with open('../ustvgo_channel_info.txt') as file:
     for line in file:
         line = line.strip()
         if not line or line.startswith('~~'):
@@ -56,10 +69,11 @@ with open('/iptv/ustvgo_channel_info.txt') as file:
         total += 1
 
 s = requests.Session()
-with open('/iptv/ustvgo_channel_info.txt') as file:
-    with open('/iptv/ustvgo.m3u', 'w') as playlist:
+with open('../ustvgo_channel_info.txt') as file:
+    with open('../ustvgo.m3u', 'w') as playlist:
         print('[*] Generating your playlist, please wait...\n')
         playlist.write('#EXTM3U x-tvg-url="https://raw.githubusercontent.com/Theitfixer85/myepg/master/blueepg.xml.gz"')
+        playlist.write(f'\n{banner}\n')
         pbar = tqdm(total=total)
         for line in file:
             line = line.strip()
@@ -69,11 +83,8 @@ with open('/iptv/ustvgo_channel_info.txt') as file:
             name = line[0].strip()
             code = line[1].strip()
             logo = line[2].strip()
-            cuid = line[3].strip()
-            tvgid = line[4].strip()
             pbar.update(1)
-            grab(name, code, logo, cuid, tvgid)
+            grab(name, code, logo)
         pbar.close()
         print('\n[SUCCESS] Playlist is generated!\n')
         done()
-        
