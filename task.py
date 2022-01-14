@@ -14,7 +14,6 @@ print(banner)
 import os
 import sys
 
-
 windows = False
 python = 'python3'
 if 'win' in sys.platform:
@@ -42,23 +41,18 @@ while True:
             input(f'[!] Playlist generation failed. Press Ctrl+C to exit...')
             done()
 
+def getSample():
+    headers = {'Referer':'https://ustvgo.tv/'}
+    src = s.get('https://ustvgo.tv/player.php?stream=ABC', headers=headers).text
+    global sample
+    sample = src.split("hls_src='")[1].split("'")[0]
+
 def grab(name, code, logo):
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0',
-            'Referer': 'https://ustvgo.tv/'
-        }
-        m3u = s.get(f'https://ustvgo.tv/player.php?stream={code}', headers=headers).text
-        m3u = m3u.replace('\n', '').split("var hls_src='")[1].split("'")[0]
-        playlist.write(f'\n#EXTINF:-1 tvg-id="{code}" group-title="ustvgo" tvg-logo="{logo}", {name}')
-        playlist.write(f'\n{m3u}')
-    except:
-        # findersfred helped me to find this, all credits to him:
-        m3u = s.get(f'https://ustvgo.tv/player.php?stream=BBCAmerica', headers=headers).text
-        m3u = m3u.replace('\n', '').split("var hls_src='")[1].split("'")[0].replace('BBCAmerica', code)
-        playlist.write(f'\n#EXTINF:-1 tvg-id="{code}" group-title="ustvgo" tvg-logo="{logo}", {name}')
-        playlist.write(f'\n{m3u}')
-        
+    if not sample:
+        getSample()
+    m3u = sample.replace('ABC', code)
+    playlist.write(f'\n#EXTINF:-1 tvg-id="{code}" group-title="ustvgo" tvg-logo="{logo}", {name}')
+    playlist.write(f'\n{m3u}')
 
 total = 0
 with open('../ustvgo_channel_info.txt') as file:
@@ -75,6 +69,7 @@ with open('../ustvgo_channel_info.txt') as file:
         playlist.write('#EXTM3U x-tvg-url="https://raw.githubusercontent.com/Theitfixer85/myepg/master/blueepg.xml.gz"')
         playlist.write(f'\n{banner}\n')
         pbar = tqdm(total=total)
+        sample = ''
         for line in file:
             line = line.strip()
             if not line or line.startswith('~~'):
@@ -88,3 +83,4 @@ with open('../ustvgo_channel_info.txt') as file:
         pbar.close()
         print('\n[SUCCESS] Playlist is generated!\n')
         done()
+        
